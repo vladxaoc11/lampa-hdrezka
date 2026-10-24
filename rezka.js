@@ -37,7 +37,7 @@ var LampaHDRezkaDirect = (function() {
   });
 
   // src/lampa/integration.js
-  function registerSettings(lampa, checkConnection) {
+  function registerSettings(lampa, checkConnection, services) {
     if (lampa.__hdrezkaDirectRegistered) return;
     lampa.__hdrezkaDirectRegistered = true;
     lampa.SettingsApi.addComponent({
@@ -45,15 +45,79 @@ var LampaHDRezkaDirect = (function() {
       name: "HDRezka",
       icon: ""
     });
+    function notify(text) {
+      if (lampa.Noty) lampa.Noty.show(text);
+    }
+    function display(result) {
+      var details = result.details || {};
+      var lines = [
+        "HDRezka Direct " + services.version,
+        "HTTP: " + (details.status || "0 / \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D"),
+        "\u041A\u043E\u043D\u0435\u0447\u043D\u044B\u0439 \u0430\u0434\u0440\u0435\u0441 (\u0442\u043E\u043B\u044C\u043A\u043E origin): " + (details.finalUrl || "\u043D\u0435 \u0440\u0430\u0441\u043A\u0440\u044B\u0442 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u043E\u043C"),
+        "\u0422\u0438\u043F: " + (details.contentType || "\u043D\u0435 \u0440\u0430\u0441\u043A\u0440\u044B\u0442"),
+        "Challenge: " + ((details.challengeSignals || []).join(", ") || "\u044F\u0432\u043D\u044B\u0445 \u043F\u0440\u0438\u0437\u043D\u0430\u043A\u043E\u0432 \u043D\u0435\u0442"),
+        "\u041A\u0430\u0442\u0430\u043B\u043E\u0433: " + result.catalog.status,
+        "\u0417\u0430\u043F\u0440\u043E\u0441: " + (details.code || result.request.status),
+        "Cookies: " + (details.credentialMode || "omit"),
+        "\u041E\u0431\u0449\u043D\u043E\u0441\u0442\u044C \u0441\u0435\u0441\u0441\u0438\u0438 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430 \u0438 Lampa: \u043D\u0435 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0430",
+        "HTTP 0: \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u044B CORS, DNS, TLS, \u0441\u0435\u0442\u044C \u0438\u043B\u0438 \u043F\u043E\u043B\u0438\u0442\u0438\u043A\u0430 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F."
+      ];
+      if (lampa.Modal && services.runtime.jQuery) {
+        var container = services.runtime.jQuery("<div></div>");
+        lines.forEach(function(line) {
+          container.append(services.runtime.jQuery("<p></p>").text(line));
+        });
+        var active = lampa.Controller && lampa.Controller.enabled ? lampa.Controller.enabled() : null;
+        var previous = active && active.name ? active.name : "settings";
+        lampa.Modal.open({ title: "\u0414\u0438\u0430\u0433\u043D\u043E\u0441\u0442\u0438\u043A\u0430 HDRezka", html: container, size: "large", onBack: function() {
+          lampa.Modal.close();
+          if (lampa.Controller) lampa.Controller.toggle(previous);
+        } });
+      } else notify(lines.join(" | "));
+    }
+    function run(credentials) {
+      notify("\u041F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u043C \u043F\u0440\u044F\u043C\u043E\u0435 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435\u2026");
+      checkConnection(credentials).then(display).catch(function() {
+        notify("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044C \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0443.");
+      });
+    }
     lampa.SettingsApi.addParam({
       component: "hdrezka_direct",
       param: { name: "hdrezka_direct_check", type: "trigger" },
       field: { name: "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435", description: "\u041F\u0440\u044F\u043C\u0430\u044F \u0434\u0438\u0430\u0433\u043D\u043E\u0441\u0442\u0438\u043A\u0430 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F. \u0410\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F \u0438 \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440 \u043F\u043E\u043A\u0430 \u043D\u0435 \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u044B." },
       onChange: function() {
-        if (lampa.Noty) lampa.Noty.show("\u041F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u043C \u043F\u0440\u044F\u043C\u043E\u0435 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435\u2026");
-        checkConnection().then(function(result) {
-          if (lampa.Noty) lampa.Noty.show(result.reachability.status === "success" ? "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u044F \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u0430" : "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u044F: " + result.reachability.code);
-        });
+        run(false);
+      }
+    });
+    function action(name, title, description, handler) {
+      lampa.SettingsApi.addParam({ component: "hdrezka_direct", param: { name: name, type: "trigger" }, field: { name: title, description: description }, onChange: handler });
+    }
+    action("hdrezka_direct_browser", "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0441\u0430\u0439\u0442 \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435", "\u041F\u0440\u043E\u0439\u0434\u0438\u0442\u0435 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0443 \u0432\u0440\u0443\u0447\u043D\u0443\u044E. \u0417\u0430\u0442\u0435\u043C \u0432\u0435\u0440\u043D\u0438\u0442\u0435\u0441\u044C \u0432 Lampa. Cookies \u043C\u043E\u0433\u0443\u0442 \u0431\u044B\u0442\u044C \u0438\u0437\u043E\u043B\u0438\u0440\u043E\u0432\u0430\u043D\u044B.", function() {
+      services.openBrowser().then(function() {
+        notify("\u0411\u0440\u0430\u0443\u0437\u0435\u0440 \u043E\u0442\u043A\u0440\u044B\u0442. \u041F\u043E\u0441\u043B\u0435 \u0432\u043E\u0437\u0432\u0440\u0430\u0442\u0430 \u0437\u0430\u043F\u0443\u0441\u0442\u0438\u0442\u0435 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0443 \u043F\u043E\u0441\u043B\u0435 \u0432\u0445\u043E\u0434\u0430.");
+      }).catch(function(error) {
+        notify(error.code + ": \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 " + services.mirrors.getSelected() + " \u0432\u0440\u0443\u0447\u043D\u0443\u044E \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435 TV.");
+      });
+    });
+    action("hdrezka_direct_session", "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u043F\u043E\u0441\u043B\u0435 \u0432\u0445\u043E\u0434\u0430", "\u041F\u0440\u044F\u043C\u043E\u0439 \u0437\u0430\u043F\u0440\u043E\u0441 \u0441 cookies \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F. \u0423\u0441\u043F\u0435\u0445 \u043A\u0430\u0442\u0430\u043B\u043E\u0433\u0430 \u0435\u0449\u0451 \u043D\u0435 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0430\u0435\u0442 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044E.", function() {
+      run(true);
+    });
+    action("hdrezka_direct_results", "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 / \u0432\u0435\u0440\u0441\u0438\u044F " + services.version, "\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0435\u0442\u0441\u044F \u043F\u043E\u0441\u043B\u0435 \u043F\u0435\u0440\u0435\u0437\u0430\u043F\u0443\u0441\u043A\u0430.", function() {
+      var result = services.state.get("diagnosticsSummary");
+      if (result) display(result);
+      else notify("\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0435\u0449\u0451 \u043D\u0435 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u0430.");
+    });
+    lampa.SettingsApi.addParam({
+      component: "hdrezka_direct",
+      param: { name: "hdrezka_direct_domain_input", type: "input", values: "", default: services.mirrors.getSelected() },
+      field: { name: "\u0414\u043E\u043C\u0435\u043D \u0434\u043B\u044F \u043F\u0443\u0431\u043B\u0438\u0447\u043D\u043E\u0439 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0438", description: "\u0422\u043E\u043B\u044C\u043A\u043E HTTPS origin. \u041F\u0430\u0440\u043E\u043B\u0438 \u043D\u0435 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u044F\u044E\u0442\u0441\u044F; cookies \u0434\u043B\u044F \u043D\u0435\u043F\u0440\u043E\u0432\u0435\u0440\u0435\u043D\u043D\u044B\u0445 \u0434\u043E\u043C\u0435\u043D\u043E\u0432 \u043E\u0442\u043A\u043B\u044E\u0447\u0435\u043D\u044B." },
+      onChange: function(value) {
+        try {
+          services.mirrors.select(value);
+          notify("\u0410\u0434\u0440\u0435\u0441 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D.");
+        } catch (_) {
+          notify("\u0412\u0432\u0435\u0434\u0438\u0442\u0435 HTTPS-\u0434\u043E\u043C\u0435\u043D \u0431\u0435\u0437 \u043F\u0443\u0442\u0438, \u043F\u043E\u0440\u0442\u0430 \u0438 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u043E\u0432.");
+        }
       }
     });
   }
@@ -62,67 +126,120 @@ var LampaHDRezkaDirect = (function() {
   function runPublicDiagnostics(deps) {
     var pending = { status: "not-tested" };
     return deps.transport.get(deps.origin + "/").then(function(response) {
-      var recognized = /<main|b-content|b-post/i.test(response.text);
+      var recognized = /class\s*=\s*["'][^"']*\bb-content__inline_items\b/i.test(response.text);
       return {
         reachability: { status: "success" },
         request: { status: "success" },
-        catalog: recognized ? { status: "success" } : { status: "error", code: "UNSUPPORTED_PROTOCOL" }
+        catalog: recognized ? { status: "success" } : { status: "error", code: "UNSUPPORTED_PROTOCOL" },
+        details: { status: response.status, finalUrl: response.finalUrl || "", contentType: response.contentType || "", challengeSignals: response.challengeSignals || [], credentialMode: response.credentialMode || "omit", redirected: response.redirected },
+        session: "not-tested"
       };
     }).catch(function(error) {
-      return { reachability: { status: "error", code: error.code || "NETWORK" }, request: pending, catalog: pending };
+      return { reachability: { status: "error", code: error.code || "NETWORK_OR_CORS" }, request: pending, catalog: pending, details: error, session: "not-tested" };
     });
-  }
-
-  // src/utils/errors.js
-  function failure(code) {
-    return { code: code };
-  }
-
-  // src/rezka/transport.js
-  function createTransport(options) {
-    return {
-      get: function(url) {
-        return new Promise(function(resolve, reject) {
-          if (String(url).indexOf(options.origin + "/") !== 0 && String(url) !== options.origin) return reject(failure("UNTRUSTED_DOMAIN"));
-          var xhr = new options.XMLHttpRequest();
-          xhr.open("GET", url, true);
-          xhr.timeout = 15e3;
-          xhr.onload = function() {
-            if (/just a moment|cloudflare|captcha/i.test(xhr.responseText || "")) return reject(failure("BLOCKED_CHALLENGE"));
-            if (xhr.status >= 200 && xhr.status < 300) return resolve({ status: xhr.status, text: xhr.responseText || "" });
-            reject(failure("HTTP"));
-          };
-          xhr.onerror = function() {
-            reject(failure("NETWORK"));
-          };
-          xhr.ontimeout = function() {
-            reject(failure("TIMEOUT"));
-          };
-          xhr.send();
-        });
-      }
-    };
   }
 
   // src/rezka/mirrors.js
   var TRUSTED_ORIGINS = ["https://rezka.ag"];
   function normalizeTrustedDomain(value) {
     var normalized = String(value || "").trim().replace(/\/$/, "").toLowerCase();
-    if (!/^https:\/\/[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(normalized)) {
+    if (!/^https:\/\/(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}$/i.test(normalized)) {
       throw new Error("INVALID_DOMAIN");
     }
     return normalized;
   }
+  function isCredentialEligible(origin) {
+    return TRUSTED_ORIGINS.indexOf(String(origin || "").toLowerCase()) !== -1;
+  }
   function createMirrorManager(state) {
     return {
       getSelected: function() {
-        return state.get("selectedDomain") || TRUSTED_ORIGINS[0];
+        try {
+          return normalizeTrustedDomain(state.get("selectedDomain") || TRUSTED_ORIGINS[0]);
+        } catch (_) {
+          return TRUSTED_ORIGINS[0];
+        }
       },
       select: function(value) {
         var origin = normalizeTrustedDomain(value);
-        if (TRUSTED_ORIGINS.indexOf(origin) === -1) throw new Error("UNTRUSTED_DOMAIN");
         state.set("selectedDomain", origin);
         return origin;
+      }
+    };
+  }
+
+  // src/rezka/transport.js
+  function safeOrigin(value) {
+    var match = /^https:\/\/([a-z0-9.-]+)(?:\/|$)/i.exec(String(value || ""));
+    return match ? "https://" + match[1].toLowerCase() + "/" : "";
+  }
+  function challengeSignals(body) {
+    var signals = [];
+    if (/id\s*=\s*["']anubis_challenge["']/i.test(body)) signals.push("ANUBIS_PAGE");
+    if (/_cf_chl_opt\s*=|id\s*=\s*["']challenge-form["']/i.test(body)) signals.push("CF_CHALLENGE_FORM");
+    if (/<title[^>]*>\s*(?:Just a moment|Attention Required)[^<]*<\/title>/i.test(body) && /\/cdn-cgi\/challenge-platform\//i.test(body)) signals.push("CF_INTERSTITIAL");
+    return signals;
+  }
+  function createTransport(options) {
+    return {
+      get: function(url) {
+        return new Promise(function(resolve, reject) {
+          var origin;
+          try {
+            origin = normalizeTrustedDomain(options.origin);
+          } catch (_) {
+            reject({ code: "INVALID_DOMAIN" });
+            return;
+          }
+          if (url !== origin + "/") return reject({ code: "UNTRUSTED_DOMAIN" });
+          var xhr;
+          try {
+            xhr = new options.XMLHttpRequest();
+          } catch (_) {
+            reject({ code: "RUNTIME_UNAVAILABLE", status: 0 });
+            return;
+          }
+          function metadata() {
+            var contentType = "";
+            try {
+              contentType = xhr.getResponseHeader("Content-Type") || "";
+            } catch (_) {
+            }
+            var finalOrigin = safeOrigin(xhr.responseURL);
+            return {
+              status: xhr.status || 0,
+              finalUrl: finalOrigin,
+              contentType: String(contentType).split(";")[0].slice(0, 80),
+              credentialMode: options.credentials ? "include" : "omit",
+              redirected: finalOrigin ? finalOrigin !== origin + "/" : null,
+              challengeSignals: challengeSignals(xhr.responseText || "")
+            };
+          }
+          function fail(code) {
+            var data = metadata();
+            data.code = code;
+            reject(data);
+          }
+          xhr.open("GET", url, true);
+          xhr.withCredentials = options.credentials === true;
+          xhr.timeout = 15e3;
+          xhr.onload = function() {
+            var data = metadata();
+            if (data.redirected) return fail("CROSS_ORIGIN_REDIRECT");
+            if (data.challengeSignals.length) return fail("BLOCKED_CHALLENGE");
+            if (!xhr.status) return fail("NETWORK_OR_CORS");
+            if (xhr.status < 200 || xhr.status >= 300) return fail("HTTP");
+            data.text = xhr.responseText || "";
+            resolve(data);
+          };
+          xhr.onerror = function() {
+            fail("NETWORK_OR_CORS");
+          };
+          xhr.ontimeout = function() {
+            fail("TIMEOUT");
+          };
+          xhr.send();
+        });
       }
     };
   }
@@ -146,10 +263,43 @@ var LampaHDRezkaDirect = (function() {
     };
   }
 
+  // src/lampa/browser-session.js
+  function openBrowser(runtime, origin) {
+    return new Promise(function(resolve, reject) {
+      var target;
+      try {
+        target = normalizeTrustedDomain(origin) + "/";
+      } catch (_) {
+        reject({ code: "INVALID_DOMAIN" });
+        return;
+      }
+      var tizen = runtime.tizen;
+      if (!tizen || !tizen.application || !tizen.ApplicationControl) {
+        reject({ code: "BROWSER_API_UNAVAILABLE" });
+        return;
+      }
+      try {
+        var control = new tizen.ApplicationControl("http://tizen.org/appcontrol/operation/view", target);
+        tizen.application.launchAppControl(
+          control,
+          null,
+          function() {
+            resolve({ launched: true, session: "not-tested" });
+          },
+          function(error) {
+            reject({ code: error && error.name === "SecurityError" ? "BROWSER_PRIVILEGE_REQUIRED" : "BROWSER_LAUNCH_FAILED" });
+          }
+        );
+      } catch (error) {
+        reject({ code: error && error.name === "SecurityError" ? "BROWSER_PRIVILEGE_REQUIRED" : "BROWSER_LAUNCH_FAILED" });
+      }
+    });
+  }
+
   // src/index.js
   var manifest = {
     type: "video",
-    version: "0.1.0",
+    version: "0.2.0",
     name: "HDRezka Direct",
     description: "Direct diagnostics plugin for Lampa",
     component: "hdrezka_direct"
@@ -173,13 +323,27 @@ var LampaHDRezkaDirect = (function() {
       return fallback;
     }, set: function() {
     } };
-    var origin = createMirrorManager(createState(storage)).getSelected();
+    var state = createState(storage);
+    var mirrors = createMirrorManager(state);
     registerManifest(lampa);
-    registerSettings(lampa, function() {
+    registerSettings(lampa, function(credentials) {
+      var origin = mirrors.getSelected();
       return runPublicDiagnostics({
         origin: origin,
-        transport: createTransport({ XMLHttpRequest: runtimeWindow.XMLHttpRequest, origin: origin })
+        transport: createTransport({ XMLHttpRequest: runtimeWindow.XMLHttpRequest, origin: origin, credentials: credentials === true && isCredentialEligible(origin) })
+      }).then(function(result) {
+        state.set("diagnosticsSummary", result);
+        if (result.catalog.status === "success") state.set("lastHealthyDomain", origin);
+        return result;
       });
+    }, {
+      runtime: runtimeWindow,
+      mirrors: mirrors,
+      state: state,
+      version: manifest.version,
+      openBrowser: function() {
+        return openBrowser(runtimeWindow, mirrors.getSelected());
+      }
     });
     var destroyed = false;
     return {
