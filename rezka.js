@@ -30,6 +30,9 @@ var LampaHDRezkaDirect = (function() {
     },
     manifest: function() {
       return manifest;
+    },
+    registerManifest: function() {
+      return registerManifest;
     }
   });
 
@@ -151,6 +154,17 @@ var LampaHDRezkaDirect = (function() {
     description: "Direct diagnostics plugin for Lampa",
     component: "hdrezka_direct"
   };
+  function registerManifest(lampa) {
+    if (!lampa.Manifest) lampa.Manifest = {};
+    if (Array.isArray(lampa.Manifest.plugins)) {
+      if (!lampa.Manifest.plugins.some(function(plugin) {
+        return plugin && plugin.component === manifest.component;
+      })) lampa.Manifest.plugins.push(manifest);
+    } else {
+      if (!lampa.Manifest.plugins) lampa.Manifest.plugins = {};
+      lampa.Manifest.plugins[manifest.component] = manifest;
+    }
+  }
   function bootstrap(lampa, runtimeWindow) {
     if (!lampa || !lampa.Listener || !lampa.SettingsApi) {
       throw new Error("LAMPA_UNAVAILABLE");
@@ -160,6 +174,7 @@ var LampaHDRezkaDirect = (function() {
     }, set: function() {
     } };
     var origin = createMirrorManager(createState(storage)).getSelected();
+    registerManifest(lampa);
     registerSettings(lampa, function() {
       return runPublicDiagnostics({
         origin: origin,
@@ -175,5 +190,18 @@ var LampaHDRezkaDirect = (function() {
       window: runtimeWindow
     };
   }
+  function autoStart() {
+    if (typeof window === "undefined" || typeof Lampa === "undefined" || window.hdrezkaDirectStarted) return;
+    function start() {
+      if (window.hdrezkaDirectStarted) return;
+      window.hdrezkaDirectStarted = true;
+      bootstrap(Lampa, window);
+    }
+    if (window.appready) start();
+    else if (Lampa.Listener && Lampa.Listener.follow) Lampa.Listener.follow("app", function(event) {
+      if (event.type === "ready") start();
+    });
+  }
+  autoStart();
   return __toCommonJS(index_exports);
 })();
