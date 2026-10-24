@@ -1,0 +1,11 @@
+{
+  "name": "hdrezka-tv-probe",
+  "version": "0.1.0",
+  "appName": "HDRezka TV Probe",
+  "description": "Manual browser session experiment. No account writes or automatic challenge solving.",
+  "packageType": "mods",
+  "websiteURL": "https://rezka.ag/",
+  "main": "tizenbrew-probe.js",
+  "keys": ["ColorF0Red"],
+  "evaluateScriptOnDocumentStart": false
+}
